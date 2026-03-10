@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spin War: Giants</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@400;600;700&display=swap');
+
+        body {
+            margin: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Teko', sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+        }
+
+        #joystick-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .joystick-zone {
+            position: absolute;
+            pointer-events: auto;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .joystick-base {
+            width: 200px; 
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            backdrop-filter: blur(4px);
+            transition: opacity 0.2s;
+        }
+
+        .joystick-knob {
+            width: 85px; 
+            height: 85px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+            pointer-events: none;
+        }
+
+        .screen {
+            position: absolute; inset: 0; z-index: 100;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.92);
+            transition: opacity 0.3s;
+        }
+        .hidden { display: none !important; opacity: 0; }
+
+        h1 {
+            color: #fff; font-size: 8vh; margin: 0 0 20px 0;
+            text-transform: uppercase; letter-spacing: 5px;
+            text-shadow: 0 0 30px rgba(0, 200, 255, 0.6);
+        }
+
+        .btn {
+            width: 60vw; max-width: 350px;
+            padding: 15px; margin: 10px;
+            font-size: 24px; font-family: 'Teko'; font-weight: 700;
+            color: #000; border: none; border-radius: 50px;
+            cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+        }
+        .btn-cyan { background: linear-gradient(135deg, #00C9FF, #92FE9D); }
+        .btn-pink { background: linear-gradient(135deg, #FF512F, #DD2476); color: white;}
+        .btn-yellow { background: linear-gradient(135deg, #F09819, #EDDE5D); }
+
+        #hud {
+            position: absolute; top: 0; left: 0; width: 100%;
+            padding: 15px; display: flex; justify-content: center; gap: 30px;
+            z-index: 50; pointer-events: none;
+        }
+        .score-pill {
+            background: rgba(0,0,0,0.6); border: 2px solid #555;
+            padding: 5px 25px; border-radius: 20px;
+            color: white; font-weight: bold; 
+            font-size: 36px;
+            min-width: 40px; text-align: center;
+        }
+
+        .setup-grid { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        
+        .player-row {
+            display: flex; gap: 10px; align-items: center;
+        }
+
+        input {
+            background: #222; border: 1px solid #444; color: white;
+            padding: 10px; font-family: 'Teko'; font-size: 22px; text-transform: uppercase;
+            text-align: center; width: 180px;
+            border-radius: 8px;
+        }
+
+        .bot-toggle {
+            padding: 10px 15px;
+            background: #333; color: #777;
+            border: 1px solid #444; border-radius: 8px;
+            font-family: 'Teko'; font-size: 20px;
+            cursor: pointer; width: 80px; text-align: center;
+            user-select: none;
+        }
+        .bot-toggle.active {
+            background: #fff; color: #000;
+            border-color: white;
+            box-shadow: 0 0 10px white;
+        }
+
+        .diff-bar { display: flex; gap: 5px; margin-bottom: 20px; }
+        .diff-opt { 
+            padding: 8px 15px; background: #333; color: #777; 
+            border: 1px solid #444; cursor: pointer; font-size: 20px;
+        }
+        .diff-opt.act { background: #fff; color: #000; border-color: #fff; }
+
+        #quiz-screen {
+            background: linear-gradient(135deg, #1a0033 0%, #2d0052 50%, #1a0033 100%);
+            z-index: 200;
+        }
+
+        .quiz-container {
+            max-width: 90vw;
+            width: 600px;
+            text-align: center;
+        }
+
+        .quiz-question {
+            font-size: 28px;
+            color: #00FF6A;
+            margin-bottom: 30px;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 255, 106, 0.5);
+            line-height: 1.4;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .option-btn {
+            padding: 15px;
+            font-size: 18px;
+            font-family: 'Teko';
+            font-weight: 700;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            background: rgba(0, 200, 255, 0.1);
+            color: #00C9FF;
+            cursor: pointer;
+            border-radius: 12px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: rgba(0, 200, 255, 0.3);
+            border-color: #00C9FF;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+            transform: translateX(10px);
+        }
+
+        .option-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .option-btn.correct {
+            background: rgba(0, 255, 106, 0.3);
+            border-color: #00FF6A;
+            color: #00FF6A;
+            box-shadow: 0 0 20px rgba(0, 255, 106, 0.8);
+            animation: correctPulse 0.6s ease-out;
+        }
+
+        .option-btn.incorrect {
+            background: rgba(255, 80, 80, 0.3);
+            border-color: #FF5050;
+            color: #FF5050;
+            box-shadow: 0 0 20px rgba(255, 80, 80, 0.8);
+            animation: shake 0.5s;
+        }
+
+        @keyframes correctPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .feedback-message {
+            font-size: 24px;
+            margin: 20px 0;
+            font-weight: bold;
+            min-height: 30px;
+        }
+
+        .correct-message {
+            color: #00FF6A;
+            text-shadow: 0 0 15px rgba(0, 255, 106, 0.8);
+            animation: bounce 0.5s ease;
+        }
+
+        .incorrect-message {
+            color: #FF5050;
+            text-shadow: 0 0 15px rgba(255, 80, 80, 0.8);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .correct-answer-reveal {
+            font-size: 16px;
+            color: #FFD700;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        .confetti {
+            position: fixed;
+            pointer-events: none;
+            font-size: 30px;
+            animation: confettiFall 3s ease-in forwards;
+        }
+
+        @keyframes confettiFall {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotateZ(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100vh) rotateZ(720deg);
+            }
+        }
+
+        .celebration-stars {
+            animation: starBurst 0.8s ease-out forwards;
+        }
+
+        @keyframes starBurst {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        .continue-btn {
+            margin-top: 20px;
+            opacity: 0;
+            animation: fadeInUp 0.5s ease 0.8s forwards;
+        }
+
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .round-counter {
+            font-size: 18px;
+            color: #FFE600;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-layer">
+        <canvas id="c"></canvas>
+    </div>
+    <div id="joystick-layer"></div>
+    <div id="hud"></div>
+
+    <div id="menu" class="screen">
+        <h1>SPIN WAR</h1>
+        <button class="btn btn-cyan" onclick="UI.setup(1)">1 Player (Vs AI)</button>
+        <button class="btn btn-pink" onclick="UI.setup(2)">2 Players</button>
+        <button class="btn btn-yellow" onclick="UI.setup(3)">3 Players</button>
+        <button class="btn btn-cyan" onclick="UI.setup(4)">4 Players</button>
+    </div>
+
+    <div id="setup" class="screen hidden">
+        <h1>SETUP MATCH</h1>
+        <div class="diff-bar">
+            <div class="diff-opt" onclick="UI.setDiff(0)">EASY</div>
+            <div class="diff-opt act" onclick="UI.setDiff(1)">NORMAL</div>
+            <div class="diff-opt" onclick="UI.setDiff(2)">HARD</div>
+            <div class="diff-opt" onclick="UI.setDiff(3)">MASTERS</div>
+        </div>
+        <div class="setup-grid" id="setup-rows"></div>
+        <button class="btn btn-pink" onclick="Game.start()">FIGHT!</button>
+        <button class="btn" style="background:#333; color:#fff;" onclick="location.reload()">BACK</button>
+    </div>
+
+    <div id="win-screen" class="screen hidden">
+        <h1 id="win-msg">WINNER</h1>
+        <button class="btn btn-cyan" onclick="Game.rematch()">REPLAY</button>
+        <button class="btn btn-pink" onclick="location.reload()">MENU</button>
+    </div>
+
+    <div id="quiz-screen" class="screen hidden">
+        <div class="quiz-container">
+            <div class="round-counter" id="round-counter"></div>
+            <h1>STUDY TIME!</h1>
+            <div class="quiz-question" id="quiz-question"></div>
+            <div class="quiz-options" id="quiz-options"></div>
+            <div class="feedback-message" id="feedback-message"></div>
+            <div id="correct-answer-reveal"></div>
+            <button class="btn btn-cyan continue-btn" id="continue-btn" onclick="Quiz.nextQuestion()">CONTINUE</button>
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+const CFG = {
+    drag: 0.96,        
+    accel: 1.05,
+    maxSpeed: 23.3,
+    spinRate: 0.28,
+    radius: 60,
+    restitution: 3.0,
+    winPoints: 4
+};
+
+const COLORS = ["#00F0FF", "#FF0050", "#00FF6A", "#FFE600"];
+
+const QUIZ_QUESTIONS = [
+    {question: "In what time period did the Chinese government mint large amounts of copper coins?", options: ["600 - 900 CE", "901 - 1000 CE", "1001 - 1100 CE", "1101 - 1279 CE"], correct: 2, explanation: "The Chinese government minted large amounts of copper coins during 1001 - 1100 CE"},
+    {question: "Approximately when was the Tang dynasty around from?", options: ["600-900 CE", "901-1000 CE", "1001-1100 CE", "1101-1200 CE"], correct: 0, explanation: "The Tang dynasty was around from 600-900 CE"},
+    {question: "What was the primary reason the Chinese government began creating massive amounts of copper coins in the 11th century?", options: ["To replace silk as a form of payment", "A high demand for buying and selling items", "To discourage trade with European cities", "To pay for new agricultural tools"], correct: 1, explanation: "The primary reason was a high demand for buying and selling items"},
+    {question: "According to the text, what was a direct result of the massive copper shortage?", options: ["The government banned all trade", "Farmers stopped producing silk", "A rise in moneylending and a switch to paper money", "The collapse of the Tang dynasty"], correct: 2, explanation: "A direct result was a rise in moneylending and a switch to paper money"},
+    {question: "What effect did printing paper money in large quantities have on the Chinese economy?", options: ["It caused a decrease in the value of silk", "It led to a decline in the number of merchants", "It increased trade and commerce, helping the economy grow", "It forced wealthy landowners to stop buying luxury goods"], correct: 2, explanation: "It increased trade and commerce, helping the economy grow"},
+    {question: "During which two dynasties did these major economic developments occur?", options: ["Han and Qin", "Tang and Song", "Ming and Qing", "Shang and Zhou"], correct: 1, explanation: "These developments occurred during the Tang and Song dynasties"},
+    {question: "How did Chinese cities during this period compare to those in Europe?", options: ["They were significantly smaller", "They were roughly the same size", "They were humongous and much larger than European cities", "They were mostly abandoned by merchants"], correct: 2, explanation: "Chinese cities were humongous and much larger than European cities"},
+    {question: "Which group of people were primarily found filling the huge cities of China?", options: ["Soldiers and sailors", "Merchants and farmers", "Monks and explorers", "Only government officials"], correct: 1, explanation: "Merchants and farmers were primarily found filling the huge cities"},
+    {question: "According to the Introduction, what was a major factor that fueled the growth of the economy?", options: ["Changes in agriculture", "The discovery of gold mines", "New laws against moneylending", "A decrease in the population of cities"], correct: 0, explanation: "Changes in agriculture fueled the growth of the economy"},
+    {question: "What role did wealthy landowners play in the growth of trade?", options: ["They moved to Europe to start new businesses", "They refused to buy luxury goods, forcing prices down", "Their demand for luxury goods and gadgets increased trade", "They focused only on growing copper for coins"], correct: 2, explanation: "Their demand for luxury goods and gadgets increased trade"},
+    {question: "How did Chinese artisans respond to the increased demand for luxury items?", options: ["They began making silk and other goods to profit", "They stopped working to protest paper money", "They moved from the cities back to small farms", "They focused solely on creating copper coins"], correct: 0, explanation: "They began making silk and other goods to profit"},
+    {question: "What is the approximate time frame for the Tang and Song eras mentioned in the text?", options: ["200 B.C.E. to 200 C.E.", "618 to 1279 C.E.", "1279 to 1500 C.E.", "11th century only"], correct: 1, explanation: "The Tang and Song eras were from approximately 618 to 1279 C.E."}
+];
+
+const Quiz = {
+    currentQuestion: null,
+    answered: false,
+
+    getRandomQuestion() {
+        return QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
+    },
+
+    showQuestion() {
+        Quiz.answered = false;
+        Quiz.currentQuestion = Quiz.getRandomQuestion();
+        
+        document.getElementById('quiz-question').textContent = Quiz.currentQuestion.question;
+        document.getElementById('feedback-message').textContent = '';
+        document.getElementById('correct-answer-reveal').innerHTML = '';
+        
+        const optionsContainer = document.getElementById('quiz-options');
+        optionsContainer.innerHTML = '';
+        
+        document.getElementById('round-counter').textContent = `Question ${Math.floor(Math.random() * 100) + 1}`;
+        
+        Quiz.currentQuestion.options.forEach((option, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+            btn.onclick = () => Quiz.answerQuestion(index);
+            optionsContainer.appendChild(btn);
+        });
+        
+        document.getElementById('continue-btn').style.opacity = '0';
+        document.getElementById('continue-btn').style.pointerEvents = 'none';
+    },
+
+    answerQuestion(selectedIndex) {
+        if(Quiz.answered) return;
+        
+        Quiz.answered = true;
+        const optionBtns = document.querySelectorAll('.option-btn');
+        optionBtns.forEach(btn => btn.disabled = true);
+        
+        const feedback = document.getElementById('feedback-message');
+        const reveal = document.getElementById('correct-answer-reveal');
+        const continueBtn = document.getElementById('continue-btn');
+        
+        if(selectedIndex === Quiz.currentQuestion.correct) {
+            optionBtns[selectedIndex].classList.add('correct');
+            feedback.className = 'feedback-message correct-message';
+            feedback.textContent = '🎉 CORRECT! 🎉';
+            
+            Quiz.createCelebration();
+            
+            continueBtn.textContent = 'CONTINUE TO GAME';
+            continueBtn.style.opacity = '1';
+            continueBtn.style.pointerEvents = 'auto';
+            continueBtn.onclick = () => Quiz.returnToGame();
+        } else {
+            optionBtns[selectedIndex].classList.add('incorrect');
+            optionBtns[Quiz.currentQuestion.correct].classList.add('correct');
+            
+            feedback.className = 'feedback-message incorrect-message';
+            feedback.textContent = '❌ Not quite right...';
+            
+            reveal.innerHTML = `<div class="correct-answer-reveal">Correct Answer: ${String.fromCharCode(65 + Quiz.currentQuestion.correct)}. ${Quiz.currentQuestion.options[Quiz.currentQuestion.correct]}<br><br>${Quiz.currentQuestion.explanation}</div>`;
+            
+            continueBtn.textContent = 'TRY ANOTHER QUESTION';
+            continueBtn.style.opacity = '1';
+            continueBtn.style.pointerEvents = 'auto';
+            continueBtn.onclick = () => Quiz.showQuestion();
+        }
+    },
+
+    createCelebration() {
+        const emojis = ['🎉', '⭐', '✨', '🎊', '🌟', '💫', '🎯', '🏆'];
+        for(let i = 0; i < 20; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-50px';
+                confetti.style.animationDuration = (2 + Math.random() * 1) + 's';
+                confetti.style.animationDelay = (Math.random() * 0.3) + 's';
+                document.body.appendChild(confetti);
+                
+                setTimeout(() => confetti.remove(), 4000);
+            }, i * 20);
+        }
+
+        for(let i = 0; i < 12; i++) {
+            const star = document.createElement('div');
+            star.className = 'celebration-stars';
+            star.textContent = '✨';
+            star.style.position = 'fixed';
+            star.style.left = '50%';
+            star.style.top = '50%';
+            star.style.fontSize = '40px';
+            star.style.pointerEvents = 'none';
+            const angle = (i / 12) * Math.PI * 2;
+            const distance = 100;
+            star.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+            star.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+            star.style.animation = `starBurst 0.8s ease-out forwards`;
+            star.style.transform = `translate(var(--tx), var(--ty))`;
+            document.body.appendChild(star);
+            
+            setTimeout(() => star.remove(), 1000);
+        }
+    },
+
+    returnToGame() {
+        document.getElementById('quiz-screen').classList.add('hidden');
+        Game.running = true;
+        Game.startRound();
+    }
+};
+
+class Joystick {
+    constructor(id, container, color) {
+        this.id = id;
+        this.active = false;
+        this.data = { x: 0, y: 0 };
+        this.origin = { x: 0, y: 0 };
+        this.touchId = null;
+        this.zone = document.createElement('div');
+        this.zone.className = 'joystick-zone';
+        this.base = document.createElement('div');
+        this.base.className = 'joystick-base';
+        this.base.style.borderColor = color;
+        this.knob = document.createElement('div');
+        this.knob.className = 'joystick-knob';
+        this.base.appendChild(this.knob);
+        this.zone.appendChild(this.base);
+        container.appendChild(this.zone);
+        this.zone.addEventListener('touchstart', e => this.start(e), {passive:false});
+        this.zone.addEventListener('touchmove', e => this.move(e), {passive:false});
+        this.zone.addEventListener('touchend', e => this.end(e), {passive:false});
+        this.zone.addEventListener('mousedown', e => this.startMouse(e));
+        window.addEventListener('mousemove', e => this.moveMouse(e));
+        window.addEventListener('mouseup', e => this.endMouse(e));
+    }
+    setPosition(css) { this.zone.style = css; }
+    start(e) { e.preventDefault(); const touch = e.changedTouches[0]; this.touchId = touch.identifier; this.active = true; this.base.style.opacity = "1"; this.calcOrigin(); this.updateKnob(touch.clientX, touch.clientY); }
+    calcOrigin() { const rect = this.base.getBoundingClientRect(); this.origin.x = rect.left + rect.width/2; this.origin.y = rect.top + rect.height/2; }
+    move(e) { e.preventDefault(); if(!this.active) return; for(let i=0; i<e.changedTouches.length; i++){ if(e.changedTouches[i].identifier === this.touchId) { this.updateKnob(e.changedTouches[i].clientX, e.changedTouches[i].clientY); break; }} }
+    end(e) { e.preventDefault(); for(let i=0; i<e.changedTouches.length; i++){ if(e.changedTouches[i].identifier === this.touchId) { this.reset(); break; }} }
+    startMouse(e) { e.preventDefault(); this.active = true; this.base.style.opacity = "1"; this.calcOrigin(); this.updateKnob(e.clientX, e.clientY); }
+    moveMouse(e) { if(this.active) this.updateKnob(e.clientX, e.clientY); }
+    endMouse(e) { if(this.active) this.reset(); }
+    updateKnob(cx, cy) {
+        const maxDist = 100;
+        let dx = cx - this.origin.x;
+        let dy = cy - this.origin.y;
+        const dist = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx);
+        const clampedDist = Math.min(dist, maxDist);
+        const kx = Math.cos(angle) * clampedDist;
+        const ky = Math.sin(angle) * clampedDist;
+        this.knob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+        this.data.x = kx / maxDist;
+        this.data.y = ky / maxDist;
+    }
+    reset() { this.active = false; this.data = {x:0, y:0}; this.knob.style.transform = `translate(-50%, -50%)`; this.base.style.opacity = "0.5"; }
+}
+
+class Player {
+    constructor(id, total, isBot) {
+        this.id = id;
+        this.isBot = isBot;
+        this.color = COLORS[id];
+        this.score = 0;
+        this.name = "P" + (id+1);
+        const angle = (id * Math.PI * 2) / total;
+        const dist = Game.arenaRad * 0.60;
+        this.startPos = {x: Game.cx + Math.cos(angle)*dist, y: Game.cy + Math.sin(angle)*dist};
+        this.reset();
+    }
+    reset() {
+        this.x = this.startPos.x;
+        this.y = this.startPos.y;
+        this.vx = 0; this.vy = 0;
+        this.angle = 0;
+        this.dead = false;
+        this.botTarget = null;
+    }
+    update(joystickData) {
+        if(this.dead) return;
+        let inputX = 0, inputY = 0;
+        if(this.isBot) {
+            const diff = Game.aiDiff;
+            if(!this.botTarget || this.botTarget.dead) {
+                this.botTarget = Game.players.find(p => p !== this && !p.dead);
+            }
+            if(this.botTarget) {
+                let dx = this.botTarget.x - this.x;
+                let dy = this.botTarget.y - this.y;
+                let dist = Math.hypot(dx, dy);
+                if(Math.random() < [0.05, 0.1, 0.2, 0.95][diff]) {
+                    inputX = dx / dist;
+                    inputY = dy / dist;
+                }
+            }
+        } else if (joystickData) {
+            inputX = joystickData.x;
+            inputY = joystickData.y;
+        }
+        this.vx += inputX * CFG.accel;
+        this.vy += inputY * CFG.accel;
+        this.vx *= CFG.drag;
+        this.vy *= CFG.drag;
+        const vel = Math.hypot(this.vx, this.vy);
+        if(vel > CFG.maxSpeed) {
+            this.vx = (this.vx/vel) * CFG.maxSpeed;
+            this.vy = (this.vy/vel) * CFG.maxSpeed;
+        }
+        this.x += this.vx;
+        this.y += this.vy;
+        this.angle += CFG.spinRate + (vel * 0.02);
+        const d = Math.hypot(this.x - Game.cx, this.y - Game.cy);
+        if(d > Game.arenaRad - CFG.radius) {
+            this.die();
+        }
+    }
+    die() { this.dead = true; for(let i=0; i<15; i++) Game.spawnParticle(this.x, this.y, this.color); Game.checkWin(); }
+    draw() {
+        if(this.dead) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        for(let i=0; i<3; i++) {
+            ctx.rotate(Math.PI*2/3);
+            ctx.moveTo(0,0);
+            ctx.lineTo(28, -28);
+            ctx.lineTo(0, -CFG.radius-15);
+            ctx.lineTo(-28, -28);
+        }
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0,0,22,0,Math.PI*2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.restore();
+        ctx.font = "bold 24px Arial";
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.textAlign = "center";
+        ctx.fillText(this.name, this.x, this.y + 90);
+    }
+}
+
+const Game = {
+    running: false,
+    players: [],
+    joysticks: [],
+    cx: 0, cy: 0, arenaRad: 0,
+    particles: [],
+    mode: 0,
+    aiDiff: 1,
+    currentRad: 0,
+    roundsCompleted: 0,
+    init() {
+        window.addEventListener('resize', () => this.resize());
+        this.resize();
+        this.loop();
+    },
+    resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        this.cx = canvas.width/2;
+        this.cy = canvas.height/2;
+        this.arenaRad = (Math.min(this.cx, this.cy) - 20) * 0.90;
+        if(this.running) UI.layoutJoysticks(this.players.length);
+    },
+    start() {
+        const rows = document.getElementById('setup-rows').children;
+        this.players = [];
+        this.joysticks = [];
+        const layer = document.getElementById('joystick-layer');
+        layer.innerHTML = '';
+        const count = rows.length;
+        for(let i=0; i<count; i++) {
+            const input = rows[i].querySelector('input');
+            const botBtn = rows[i].querySelector('.bot-toggle');
+            const isBot = botBtn.classList.contains('active');
+            let p = new Player(i, count, isBot);
+            if(isBot) p.name = "BOT " + (i+1);
+            if(input.value) p.name = input.value;
+            this.players.push(p);
+            if(!isBot) {
+                let j = new Joystick(i, layer, COLORS[i]);
+                this.joysticks.push(j);
+            } else {
+                this.joysticks.push(null);
+            }
+        }
+        document.getElementById('setup').classList.add('hidden');
+        this.running = true;
+        this.roundsCompleted = 0;
+        this.resize();
+        this.startRound();
+    },
+    startRound() { this.players.forEach(p => p.reset()); this.particles = []; UI.updateScore(); this.currentRad = this.arenaRad; },
+    spawnParticle(x, y, c) { this.particles.push({x:x, y:y, vx:(Math.random()-0.5)*15, vy:(Math.random()-0.5)*15, life:1.0, c:c}); },
+    loop() {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0,0,canvas.width, canvas.height);
+        if(this.running) {
+            if(this.currentRad > 150) this.currentRad -= 0.05;
+            ctx.beginPath();
+            ctx.arc(this.cx, this.cy, this.currentRad, 0, Math.PI*2);
+            ctx.fillStyle = "#080808";
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            this.players.forEach((p, i) => { let input = this.joysticks[i] ? this.joysticks[i].data : null; p.update(input); });
+            this.resolveCollisions();
+            this.players.forEach(p => p.draw());
+            for(let i=this.particles.length-1; i>=0; i--) {
+                let p = this.particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                ctx.fillStyle = p.c;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1;
+                if(p.life <= 0) this.particles.splice(i,1);
+            }
+        }
+        requestAnimationFrame(() => this.loop());
+    },
+    resolveCollisions() {
+        for(let i=0; i<this.players.length; i++) {
+            for(let j=i+1; j<this.players.length; j++) {
+                let p1 = this.players[i], p2 = this.players[j];
+                if(p1.dead || p2.dead) continue;
+                let dx = p2.x - p1.x;
+                let dy = p2.y - p1.y;
+                let dist = Math.hypot(dx, dy);
+                if(dist < CFG.radius*2) {
+                    let angle = Math.atan2(dy, dx);
+                    let overlap = (CFG.radius*2 - dist) + 2;
+                    let mx = Math.cos(angle)*overlap*0.5;
+                    let my = Math.sin(angle)*overlap*0.5;
+                    p1.x -= mx; p1.y -= my;
+                    p2.x += mx; p2.y += my;
+                    let nx = dx/dist, ny = dy/dist;
+                    let rvx = p2.vx - p1.vx, rvy = p2.vy - p1.vy;
+                    let normVel = rvx*nx + rvy*ny;
+                    if(normVel > 0) continue;
+                    let impulse = -(1 + CFG.restitution) * normVel / 2;
+                    p1.vx -= impulse*nx; p1.vy -= impulse*ny;
+                    p2.vx += impulse*nx; p2.vy += impulse*ny;
+                    for(let k=0; k<8; k++) this.spawnParticle((p1.x+p2.x)/2, (p1.y+p2.y)/2, "white");
+                }
+            }
+        }
+    },
+    checkWin() {
+        const alive = this.players.filter(p => !p.dead);
+        if(alive.length <= 1) {
+            if(alive.length === 1) {
+                alive[0].score++;
+                UI.updateScore();
+                this.roundsCompleted++;
+                if(this.roundsCompleted % 2 === 0) {
+                    setTimeout(() => this.showQuiz(), 1000);
+                    return;
+                }
+                if(alive[0].score >= CFG.winPoints) {
+                    setTimeout(() => UI.win(alive[0]), 1000);
+                    return;
+                }
+            }
+            setTimeout(() => this.startRound(), 1500);
+        }
+    },
+    showQuiz() {
+        this.running = false;
+        document.getElementById('quiz-screen').classList.remove('hidden');
+        Quiz.showQuestion();
+    },
+    rematch() {
+        this.players.forEach(p => p.score = 0);
+        this.roundsCompleted = 0;
+        document.getElementById('win-screen').classList.add('hidden');
+        this.startRound();
+    }
+};
+
+const UI = {
+    setup(n) {
+        Game.mode = n;
+        document.getElementById('menu').classList.add('hidden');
+        document.getElementById('setup').classList.remove('hidden');
+        const zone = document.getElementById('setup-rows');
+        zone.innerHTML = '';
+        let count = (n === 1) ? 2 : n;
+        for(let i=0; i<count; i++) {
+            let isForcedBot = (n === 1 && i === 1);
+            let botClass = isForcedBot ? 'active' : '';
+            let botText = isForcedBot ? 'BOT' : 'HUMAN';
+            let row = document.createElement('div');
+            row.className = 'player-row';
+            row.innerHTML = `<input type="text" placeholder="PLAYER ${i+1}" style="border-color:${COLORS[i]}"><div class="bot-toggle ${botClass}" id="btn-bot-${i}" onclick="UI.toggleBot(this)">${botText}</div>`;
+            zone.appendChild(row);
+        }
+    },
+    toggleBot(el) { if(el.classList.contains('active')) { el.classList.remove('active'); el.innerText = "HUMAN"; } else { el.classList.add('active'); el.innerText = "BOT"; } },
+    setDiff(d) { Game.aiDiff = d; document .querySelectorAll('.diff-opt').forEach((el, i) => { el.className = (i===d) ? 'diff-opt act' : 'diff-opt'; }); },
+    layoutJoysticks(n) {
+        if(!Game.joysticks.length) return;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const isPortrait = h > w;
+        const css = [];
+        if(n === 2) {
+            if(isPortrait) {
+                css[0] = "left:50%; bottom:60px; transform:translateX(-50%); width:200px; height:200px;";
+                css[1] = "left:50%; top:60px; transform:translateX(-50%); width:200px; height:200px;";
+            } else {
+                css[0] = "left:50px; bottom:50px; width:200px; height:200px;";
+                css[1] = "right:50px; bottom:50px; width:200px; height:200px;";
+            }
+        } else {
+            css[0] = "left:20px; bottom:20px; width:200px; height:200px;";
+            css[1] = "right:20px; bottom:20px; width:200px; height:200px;";
+            css[2] = "left:20px; top:20px; width:200px; height:200px;";
+            css[3] = "right:20px; top:20px; width:200px; height:200px;";
+        }
+        Game.joysticks.forEach((j, i) => { if(j) j.setPosition(css[i]); });
+    },
+    updateScore() { const hud = document.getElementById('hud'); hud.innerHTML = ''; Game.players.forEach(p => { let el = document.createElement('div'); el.className = 'score-pill'; el.style.borderColor = p.color; el.style.color = p.color; el.innerText = p.score; hud.appendChild(el); }); },
+    win(p) { document.getElementById('win-screen').classList.remove('hidden'); const t = document.getElementById('win-msg'); t.innerText = p.name + " WINS!"; t.style.color = p.color; }
+};
+
+Game.init();
+</script>
+</body>
+</html>
