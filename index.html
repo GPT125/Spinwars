@@ -148,6 +148,14 @@
             text-align: center;
         }
 
+        #quiz-progress {
+            color: #FFD700;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
         .quiz-question {
             font-size: 28px;
             color: #00FF6A;
@@ -348,11 +356,12 @@
         <div class="quiz-container">
             <div class="round-counter" id="round-counter"></div>
             <h1>STUDY TIME!</h1>
+            <div id="quiz-progress">Questions Answered: 0/2</div>
             <div class="quiz-question" id="quiz-question"></div>
             <div class="quiz-options" id="quiz-options"></div>
             <div class="feedback-message" id="feedback-message"></div>
             <div id="correct-answer-reveal"></div>
-            <button class="btn btn-cyan continue-btn" id="continue-btn" onclick="Quiz.nextQuestion()">CONTINUE</button>
+            <button class="btn btn-cyan continue-btn" id="continue-btn" onclick="Quiz.continueAction()">CONTINUE</button>
         </div>
     </div>
 
@@ -390,6 +399,8 @@ const QUIZ_QUESTIONS = [
 const Quiz = {
     currentQuestion: null,
     answered: false,
+    correctCount: 0,
+    requiredCorrect: 2,
 
     getRandomQuestion() {
         return QUIZ_QUESTIONS[Math.floor(Math.random() * QUIZ_QUESTIONS.length)];
@@ -407,6 +418,9 @@ const Quiz = {
         optionsContainer.innerHTML = '';
         
         document.getElementById('round-counter').textContent = `Question ${Math.floor(Math.random() * 100) + 1}`;
+        
+        // Update progress display
+        document.getElementById('quiz-progress').textContent = `Questions Answered: ${Quiz.correctCount}/${Quiz.requiredCorrect}`;
         
         Quiz.currentQuestion.options.forEach((option, index) => {
             const btn = document.createElement('button');
@@ -432,17 +446,30 @@ const Quiz = {
         const continueBtn = document.getElementById('continue-btn');
         
         if(selectedIndex === Quiz.currentQuestion.correct) {
+            // Correct answer
             optionBtns[selectedIndex].classList.add('correct');
             feedback.className = 'feedback-message correct-message';
             feedback.textContent = '🎉 CORRECT! 🎉';
             
             Quiz.createCelebration();
             
-            continueBtn.textContent = 'CONTINUE TO GAME';
-            continueBtn.style.opacity = '1';
-            continueBtn.style.pointerEvents = 'auto';
-            continueBtn.onclick = () => Quiz.returnToGame();
+            Quiz.correctCount++;
+            
+            if(Quiz.correctCount >= Quiz.requiredCorrect) {
+                // All required correct answers given - show continue to game button
+                continueBtn.textContent = 'CONTINUE TO GAME';
+                continueBtn.style.opacity = '1';
+                continueBtn.style.pointerEvents = 'auto';
+                continueBtn.onclick = () => Quiz.returnToGame();
+            } else {
+                // Still need more correct answers - show next question button
+                continueBtn.textContent = 'NEXT QUESTION';
+                continueBtn.style.opacity = '1';
+                continueBtn.style.pointerEvents = 'auto';
+                continueBtn.onclick = () => Quiz.showQuestion();
+            }
         } else {
+            // Incorrect answer
             optionBtns[selectedIndex].classList.add('incorrect');
             optionBtns[Quiz.currentQuestion.correct].classList.add('correct');
             
@@ -451,11 +478,16 @@ const Quiz = {
             
             reveal.innerHTML = `<div class="correct-answer-reveal">Correct Answer: ${String.fromCharCode(65 + Quiz.currentQuestion.correct)}. ${Quiz.currentQuestion.options[Quiz.currentQuestion.correct]}<br><br>${Quiz.currentQuestion.explanation}</div>`;
             
+            // Show button to try another question
             continueBtn.textContent = 'TRY ANOTHER QUESTION';
             continueBtn.style.opacity = '1';
             continueBtn.style.pointerEvents = 'auto';
             continueBtn.onclick = () => Quiz.showQuestion();
         }
+    },
+
+    continueAction() {
+        // This is called by the continue button - actual action is set dynamically in showQuestion/answerQuestion
     },
 
     createCelebration() {
@@ -498,6 +530,7 @@ const Quiz = {
 
     returnToGame() {
         document.getElementById('quiz-screen').classList.add('hidden');
+        Quiz.correctCount = 0;
         Game.running = true;
         Game.startRound();
     }
@@ -767,6 +800,7 @@ const Game = {
     },
     showQuiz() {
         this.running = false;
+        Quiz.correctCount = 0;
         document.getElementById('quiz-screen').classList.remove('hidden');
         Quiz.showQuestion();
     },
@@ -797,7 +831,7 @@ const UI = {
         }
     },
     toggleBot(el) { if(el.classList.contains('active')) { el.classList.remove('active'); el.innerText = "HUMAN"; } else { el.classList.add('active'); el.innerText = "BOT"; } },
-    setDiff(d) { Game.aiDiff = d; document .querySelectorAll('.diff-opt').forEach((el, i) => { el.className = (i===d) ? 'diff-opt act' : 'diff-opt'; }); },
+    setDiff(d) { Game.aiDiff = d; document.querySelectorAll('.diff-opt').forEach((el, i) => { el.className = (i===d) ? 'diff-opt act' : 'diff-opt'; }); },
     layoutJoysticks(n) {
         if(!Game.joysticks.length) return;
         const w = window.innerWidth;
@@ -828,3 +862,4 @@ Game.init();
 </script>
 </body>
 </html>
+
